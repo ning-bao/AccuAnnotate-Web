@@ -523,7 +523,7 @@ python demo.py                         # Test annotation pipeline
 
 For technical issues or questions:
 - GitHub Issues: [ning-bao/AccuAnnotate-Web/issues](https://github.com/ning-bao/AccuAnnotate-Web/issues)
-- Email: ning.bao@sydney.edu.au
+- Email: enquiry@baoning.dev | ning.bao.syd@gmail.com
 
 ---
 
