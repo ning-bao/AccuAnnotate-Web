@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AccuAnnotate</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="main-content">
+            <!-- Left Sidebar: Image List -->
+            <aside class="sidebar">
+                <div class="sidebar-header">
+                    <div class="sidebar-title-row">
+                        <h2>AccuAnnotate</h2>
+                        <div class="action-buttons">
+                            <button id="uploadBtn" class="btn-icon-sm" title="Upload Images">📤</button>
+                            <button id="uploadFolderBtn" class="btn-icon-sm" title="Import Folder">📁</button>
+                        </div>
+                    </div>
+                    <div class="bulk-action-buttons" id="bulkActionButtons" style="display: none;">
+                        <span id="selectedCount" class="selected-count">0 selected</span>
+                        <button id="bulkAnnotateBtn" class="btn btn-sm btn-secondary" title="Bulk Annotate">🤖</button>
+                        <button id="bulkDeleteBtn" class="btn btn-sm btn-danger" title="Bulk Delete">🗑️</button>
+                        <button id="exportBtn" class="btn btn-sm btn-primary" title="Export Dataset">📦</button>
+                        <button id="clearSelectionBtn" class="btn btn-sm btn-secondary" title="Clear Selection">✕</button>
+                    </div>
+                </div>
+                
+                <!-- Filters -->
+                <div class="filter-section">
+                    <div class="filter-row">
+                        <input type="text" id="searchInput" class="filter-input" placeholder="Search..." />
+                    </div>
+                    <div class="filter-row">
+                        <select id="statusFilter" class="filter-select">
+                            <option value="all">All Status</option>
+                            <option value="annotated">Annotated</option>
+                            <option value="not-annotated">Not Annotated</option>
+                        </select>
+                        <select id="sortSelect" class="filter-select">
+                            <option value="name-asc">Name ↑</option>
+                            <option value="name-desc">Name ↓</option>
+                            <option value="status-asc">Status ↑</option>
+                            <option value="status-desc">Status ↓</option>
+                        </select>
+                    </div>
+                    <div class="select-all-row">
+                        <label class="select-all-label">
+                            <input type="checkbox" id="selectAllCheckbox">
+                            <span>Select All</span>
+                        </label>
+                        <button id="toggleSelectModeBtn" class="btn-icon" title="Toggle Select Mode">☑️</button>
+                        <button id="deduplicateBtn" class="btn-icon" title="Remove Duplicates">🔄</button>
+                        <button id="createFolderBtn" class="btn-icon" title="Create Folder">📂</button>
+                        <button id="toggleViewModeBtn" class="btn-icon" title="Toggle View Mode">🗂️</button>
+                    </div>
+                </div>
+
+                <div id="imageList" class="image-list">
+                    <div class="loading">Loading...</div>
+                </div>
+            </aside>
+            <div id="sidebarResizer" class="sidebar-resizer"></div>
+
+            <!-- Main Content Area -->
+            <main class="content-area">
+                <div id="emptyState" class="empty-state">
+                    <div class="empty-state-icon">📸</div>
+                    <h3>No Image Selected</h3>
+                    <p>Select an image from the sidebar</p>
+                </div>
+
+                <div id="imageViewer" class="image-viewer" style="display: none;">
+                    <!-- Image Header -->
+                    <div class="viewer-header">
+                        <div class="viewer-title">
+                            <h2 id="currentImageName">Image</h2>
+                            <button id="deleteImageBtn" class="btn-icon btn-danger" title="Delete Image">
+                                🗑️
+                            </button>
+                        </div>
+                        <div class="viewer-actions">
+                            <select id="detailLevelSelect" class="filter-select" title="Detail Level">
+                                <option value="low">Detail: Low</option>
+                                <option value="normal" selected>Detail: Normal</option>
+                                <option value="high">Detail: High</option>
+                            </select>
+                            <button id="preprocessBtn" class="btn btn-secondary">
+                                🧩 Preprocess
+                            </button>
+                            <button id="annotateBtn" class="btn btn-primary">
+                                🤖 Generate
+                            </button>
+                            <button id="togglePreprocessOverlayBtn" class="btn btn-secondary">
+                                👁️ Detections
+                            </button>
+                            <button id="toggleViewBtn" class="btn btn-secondary">
+                                👁️ Annotations
+                            </button>
+                            <button id="pasteJsonBtn" class="btn btn-secondary">
+                                📋 Parse
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Two Column Layout -->
+                    <div class="viewer-content">
+                        <!-- Left: Image Display -->
+                        <div class="image-section">
+                            <div class="image-container">
+                                <div id="imageWrapper">
+                                    <img id="displayImage" alt="Current Image">
+                                    <canvas id="imageCanvas"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right: Detections & Annotations -->
+                        <div class="details-section">
+                            <!-- Preprocessed Detections -->
+                            <div class="details-panel">
+                                <div class="panel-header">
+                                    <h3>Detections</h3>
+                                    <span id="detectionCount" class="badge">0</span>
+                                </div>
+                                <div id="detectionList" class="detection-list">
+                                    <div class="no-data">No detections</div>
+                                </div>
+                            </div>
+
+                            <!-- Annotation Elements -->
+                            <div class="details-panel">
+                                <div class="panel-header">
+                                    <h3>Annotations</h3>
+                                    <span id="elementCount" class="badge">0</span>
+                                </div>
+                                <div id="elementList" class="element-list">
+                                    <div class="no-data">No annotations</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Upload Modal -->
+    <div id="uploadModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Upload Images</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">📁</div>
+                    <p>Drag and drop images here</p>
+                    <p>or</p>
+                    <input type="file" id="fileInput" accept="image/*" multiple style="display: none;">
+                    <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                        Choose Files
+                    </button>
+                </div>
+                <div id="uploadProgress" style="display: none;">
+                    <div class="progress-bar">
+                        <div id="progressFill" class="progress-fill"></div>
+                    </div>
+                    <p id="uploadStatus">Uploading...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Folder Upload Modal -->
+    <div id="folderModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Import Folder</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="upload-area" id="folderArea">
+                    <div class="upload-icon">📂</div>
+                    <p>Select a folder containing images</p>
+                    <input type="file" id="folderInput" webkitdirectory directory multiple style="display: none;">
+                    <button class="btn btn-primary" onclick="document.getElementById('folderInput').click()">
+                        Choose Folder
+                    </button>
+                </div>
+                <div id="folderProgress" style="display: none;">
+                    <div class="progress-bar">
+                        <div id="folderProgressFill" class="progress-fill"></div>
+                    </div>
+                    <p id="folderStatus">Uploading...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Batch Annotation Modal -->
+    <div id="batchModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Batch Annotation</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p>Annotate all images using OmniParser + GPT</p>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="forceAnnotate">
+                        Force re-annotate existing
+                    </label>
+                </div>
+                <div id="batchProgress" style="display: none;">
+                    <div class="progress-bar">
+                        <div id="batchProgressFill" class="progress-fill"></div>
+                    </div>
+                    <p id="batchStatus">Processing...</p>
+                </div>
+                <div class="modal-actions">
+                    <button id="startBatchBtn" class="btn btn-primary">Start</button>
+                    <button class="btn btn-secondary close">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Paste JSON Modal -->
+    <div id="pasteJsonModal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>Paste Annotation JSON</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p>Paste annotation JSON (absolute pixel coordinates):</p>
+                <pre class="json-example">{
+  "img_size": [width, height],
+  "element": [
+    {
+      "instruction": "Action",
+      "bbox": [x1, y1, x2, y2],
+      "point": [cx, cy]
+    }
+  ]
+}</pre>
+                <textarea id="jsonInput" class="json-textarea" placeholder="Paste JSON here..." rows="12"></textarea>
+                <div id="jsonError" class="error-message" style="display: none;"></div>
+                <div class="modal-actions">
+                    <button id="validateJsonBtn" class="btn btn-secondary">Validate</button>
+                    <button id="applyJsonBtn" class="btn btn-primary">Apply</button>
+                    <button class="btn btn-secondary close">Cancel</button>
+                </div>
+            </div>
+        </div>
+        <!-- Toast Notification -->
+        <div id="toast" class="toast"></div>
+    </div>
+
+    <!-- Folder Context Menu -->
+    <div id="contextMenu" class="context-menu" style="display: none;">
+        <div class="context-menu-item" data-action="delete">
+            <span>🗑️ Delete Folder</span>
+        </div>
+        <div class="context-menu-item" data-action="rename">
+            <span>✏️ Rename Folder</span>
+        </div>
+    </div>
+
+    <!-- Image Context Menu -->
+    <div id="imageContextMenu" class="context-menu" style="display: none;">
+        <div class="context-menu-item" data-action="delete">
+            <span>🗑️ Delete <span id="imageContextCount"></span></span>
+        </div>
+        <div class="context-menu-item" data-action="move-to" id="moveToMenuItem">
+            <span>📁 Move To ▶</span>
+        </div>
+    </div>
+
+    <!-- Move To Submenu -->
+    <div id="moveToSubmenu" class="context-menu context-submenu" style="display: none;">
+        <div class="context-menu-header">Move to folder:</div>
+        <div id="moveToFolderList"></div>
+    </div>
+
+    <!-- Export Dataset Modal -->
+    <div id="exportModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Export Dataset</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p><strong id="exportImageCount">0 images</strong> selected for export</p>
+                
+                <div class="form-group">
+                    <label for="exportFormat">Dataset Format:</label>
+                    <select id="exportFormat" class="filter-select">
+                        <option value="showui-desktop">ShowUI-Desktop</option>
+                        <!-- More formats can be added here -->
+                    </select>
+                    <p class="help-text">Select the output format for your dataset</p>
+                </div>
+                
+                <div class="form-group">
+                    <label for="exportSplit">Split Name:</label>
+                    <input type="text" id="exportSplit" class="filter-input" value="train" placeholder="train, test, val...">
+                    <p class="help-text">Name for this data split (e.g., train, test, val)</p>
+                </div>
+                
+                <div id="exportProgress" style="display: none;">
+                    <div class="progress-bar">
+                        <div id="exportProgressFill" class="progress-fill"></div>
+                    </div>
+                    <p id="exportStatus">Exporting...</p>
+                </div>
+                
+                <div id="exportResult" style="display: none;">
+                    <div class="success-message">
+                        <strong>✓ Export Complete!</strong>
+                        <p id="exportResultText"></p>
+                        <button id="downloadZipBtn" class="btn btn-primary" style="margin-top: 10px;">
+                            📥 Download ZIP
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="modal-actions">
+                    <button id="startExportBtn" class="btn btn-primary">Export</button>
+                    <button class="btn btn-secondary close">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
